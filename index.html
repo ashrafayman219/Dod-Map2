@@ -1,20 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>USA Defense Spending Map</title>
-    
+
     <link rel="stylesheet" href="https://js.arcgis.com/4.31/esri/themes/light/main.css">
-    
+
     <style>
-        html, body, #map {
+        html,
+        body,
+        #map {
             padding: 0;
             margin: 0;
             height: 100%;
             width: 100%;
         }
-        
+
         /* Info Card Styles */
         #infoCard {
             position: absolute;
@@ -23,7 +26,7 @@
             background: white;
             padding: 15px;
             border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             z-index: 1000;
             min-width: 250px;
             display: none;
@@ -45,6 +48,7 @@
         }
     </style>
 </head>
+
 <body>
     <div id="map"></div>
     <div id="infoCard">
@@ -60,6 +64,7 @@
             "esri/config",
             "esri/Map",
             "esri/views/MapView",
+            "esri/views/SceneView",
             "esri/layers/GeoJSONLayer",
             "esri/widgets/Legend",
             "esri/widgets/Home",
@@ -69,23 +74,32 @@
             "esri/layers/GraphicsLayer",
             "esri/Graphic",
             "esri/request",
-            "esri/layers/support/LabelClass"
-        ], function(esriConfig, Map, MapView, GeoJSONLayer, Legend, Home, 
-                   ClassBreaksRenderer, SimpleFillSymbol, TextSymbol, 
-                   GraphicsLayer, Graphic, esriRequest, LabelClass) {
-            
-                    esriConfig.apiKey = "AAPKe96926c67dfd4afb80185e0a1020deafnvFzsj9yYBaj80DS9MWNWPGhkV_K-kXKNIkOzspRqvQ4fQkbcRrhPVfkFafbB1zt";
+            "esri/layers/support/LabelClass",
+            "esri/layers/VectorTileLayer",
+        ], function (esriConfig, Map, MapView, SceneView, GeoJSONLayer, Legend, Home,
+            ClassBreaksRenderer, SimpleFillSymbol, TextSymbol,
+            GraphicsLayer, Graphic, esriRequest, LabelClass, VectorTileLayer) {
+
+            esriConfig.apiKey = "AAPKe96926c67dfd4afb80185e0a1020deafnvFzsj9yYBaj80DS9MWNWPGhkV_K-kXKNIkOzspRqvQ4fQkbcRrhPVfkFafbB1zt";
 
             const map = new Map({
                 // basemap: "gray-vector"
             });
 
-            const view = new MapView({
+            const view = new SceneView({
                 container: "map",
                 map: map,
                 center: [-96, 37.8],
                 zoom: 4
             });
+
+
+            const vtlLayer = new VectorTileLayer({
+                // URL to the vector tile service
+                url: "https://raw.githubusercontent.com/ashrafayman219/Dod-Map2/refs/heads/main/rootJson.json"
+            });
+            map.add(vtlLayer);
+
 
             // State name to code mapping
             const stateNameToCode = {
@@ -146,7 +160,7 @@
                     return null;
                 }
             }
-            
+
             const renderer = new ClassBreaksRenderer({
                 field: "spending",
                 defaultSymbol: new SimpleFillSymbol({
@@ -222,154 +236,152 @@
                 // maxScale: 0
             });
 
-// ... (keep your existing HTML and CSS) ...
+            // ... (keep your existing HTML and CSS) ...
 
-async function loadMap() {
-    const spendingData = await fetchSpendingData();
-    const spendingByState = {};
-    if (spendingData && spendingData.results) {
-        spendingData.results.forEach(item => {
-            spendingByState[item.shape_code] = item.aggregated_amount;
-        });
-    }
-
-    const response = await esriRequest('https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json', {
-        responseType: "json"
-    });
-
-    const statesData = response.data;
-    
-    statesData.features.forEach(feature => {
-        const stateName = feature.properties.name;
-        const stateCode = stateNameToCode[stateName];
-        feature.properties.spending = spendingByState[stateCode] || 0;
-    });
-
-    const blob = new Blob([JSON.stringify(statesData)], {
-        type: "application/json"
-    });
-    const url = URL.createObjectURL(blob);
-
-    const statesLayer = new GeoJSONLayer({
-        url: url,
-        renderer: renderer,
-        labelingInfo: [labelClass],
-        popupTemplate: {
-            title: "{name}",
-            content: [
-                {
-                    type: "text",
-                    text: "Defense Spending: ${spending}"
+            async function loadMap() {
+                const spendingData = await fetchSpendingData();
+                const spendingByState = {};
+                if (spendingData && spendingData.results) {
+                    spendingData.results.forEach(item => {
+                        spendingByState[item.shape_code] = item.aggregated_amount;
+                    });
                 }
-            ]
-        }
-    });
 
-    map.add(statesLayer);
+                const response = await esriRequest('https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json', {
+                    responseType: "json"
+                });
 
-    // Wait for the layer view to be created
-    let statesLayerView;
-    try {
-        statesLayerView = await view.whenLayerView(statesLayer);
-    } catch (error) {
-        console.error("Error creating layer view:", error);
-        return;
-    }
+                const statesData = response.data;
 
-    let highlight;
+                statesData.features.forEach(feature => {
+                    const stateName = feature.properties.name;
+                    const stateCode = stateNameToCode[stateName];
+                    feature.properties.spending = spendingByState[stateCode] || 0;
+                });
 
-    // Debounce function to improve performance
-    function debounce(func, wait) {
-        let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
-            clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-        };
-    }
+                const blob = new Blob([JSON.stringify(statesData)], {
+                    type: "application/json"
+                });
+                const url = URL.createObjectURL(blob);
 
-    // Handle pointer move with debouncing
-    const handlePointerMove = debounce(async (event) => {
-        const screenPoint = {
-            x: event.x,
-            y: event.y
-        };
+                const statesLayer = new GeoJSONLayer({
+                    url: url,
+                    renderer: renderer,
+                    labelingInfo: [labelClass],
+                    popupTemplate: {
+                        title: "{name}",
+                        content: [
+                            {
+                                type: "text",
+                                text: "Defense Spending: ${spending}"
+                            }
+                        ]
+                    }
+                });
 
-        try {
-            const response = await view.hitTest(screenPoint);
-            
-            // Remove existing highlight
-            if (highlight) {
-                highlight.remove();
-                highlight = null;
-            }
+                map.add(statesLayer);
 
-            const infoCard = document.getElementById('infoCard');
-            
-            if (response.results.length > 0) {
-                const graphic = response.results[0].graphic;
-                
-                if (graphic && graphic.attributes) {
-                    // Create new highlight
-                    highlight = statesLayerView.highlight(graphic);
-
-                    // Update info card
-                    const stateName = document.getElementById('stateName');
-                    const stateSpending = document.getElementById('stateSpending');
-
-                    stateName.textContent = graphic.attributes.name || 'N/A';
-                    
-                    // Safe handling of spending value
-                    const spendingValue = graphic.attributes.spending;
-                    stateSpending.textContent = spendingValue != null ? 
-                        `$${spendingValue.toLocaleString()}` : 
-                        'No data available';
-
-                    infoCard.style.display = 'block';
+                // Wait for the layer view to be created
+                let statesLayerView;
+                try {
+                    statesLayerView = await view.whenLayerView(statesLayer);
+                } catch (error) {
+                    console.error("Error creating layer view:", error);
+                    return;
                 }
-            } else {
-                // Hide info card when not hovering over a state
-                infoCard.style.display = 'none';
+
+                let highlight;
+
+                // Debounce function to improve performance
+                function debounce(func, wait) {
+                    let timeout;
+                    return function executedFunction(...args) {
+                        const later = () => {
+                            clearTimeout(timeout);
+                            func(...args);
+                        };
+                        clearTimeout(timeout);
+                        timeout = setTimeout(later, wait);
+                    };
+                }
+
+                // Handle pointer move with debouncing
+                const handlePointerMove = debounce(async (event) => {
+                    const screenPoint = {
+                        x: event.x,
+                        y: event.y
+                    };
+
+                    try {
+                        const response = await view.hitTest(screenPoint);
+
+                        // Remove existing highlight
+                        if (highlight) {
+                            highlight.remove();
+                            highlight = null;
+                        }
+
+                        const infoCard = document.getElementById('infoCard');
+
+                        if (response.results.length > 0) {
+                            const graphic = response.results[0].graphic;
+
+                            if (graphic && graphic.attributes) {
+                                // Create new highlight
+                                highlight = statesLayerView.highlight(graphic);
+
+                                // Update info card
+                                const stateName = document.getElementById('stateName');
+                                const stateSpending = document.getElementById('stateSpending');
+
+                                stateName.textContent = graphic.attributes.name || 'N/A';
+
+                                // Safe handling of spending value
+                                const spendingValue = graphic.attributes.spending;
+                                stateSpending.textContent = spendingValue != null ?
+                                    `$${spendingValue.toLocaleString()}` :
+                                    'No data available';
+
+                                infoCard.style.display = 'block';
+                            }
+                        } else {
+                            // Hide info card when not hovering over a state
+                            infoCard.style.display = 'none';
+                        }
+                    } catch (error) {
+                        console.error("Error in hit test:", error);
+                    }
+                }, 16); // Debounce time of ~60fps
+
+                // Add pointer move event listener
+                view.on("pointer-move", handlePointerMove);
+
+                // Add pointer leave event listener for the map container
+                view.container.addEventListener('mouseleave', () => {
+                    if (highlight) {
+                        highlight.remove();
+                        highlight = null;
+                    }
+                    document.getElementById('infoCard').style.display = 'none';
+                });
+
+                const legend = new Legend({
+                    view: view,
+                    layerInfos: [{
+                        layer: statesLayer,
+                        title: "Defense Spending by State"
+                    }]
+                });
+                view.ui.add(legend, "bottom-right");
+
+                const homeBtn = new Home({
+                    view: view
+                });
+                view.ui.add(homeBtn, "top-left");
             }
-        } catch (error) {
-            console.error("Error in hit test:", error);
-        }
-    }, 16); // Debounce time of ~60fps
-
-    // Add pointer move event listener
-    view.on("pointer-move", handlePointerMove);
-
-    // Add pointer leave event listener for the map container
-    view.container.addEventListener('mouseleave', () => {
-        if (highlight) {
-            highlight.remove();
-            highlight = null;
-        }
-        document.getElementById('infoCard').style.display = 'none';
-    });
-
-    const legend = new Legend({
-        view: view,
-        layerInfos: [{
-            layer: statesLayer,
-            title: "Defense Spending by State"
-        }]
-    });
-    view.ui.add(legend, "bottom-right");
-
-    const homeBtn = new Home({
-        view: view
-    });
-    view.ui.add(homeBtn, "top-left");
-}
             loadMap();
         });
     </script>
 </body>
+
 </html>
-
-
-
