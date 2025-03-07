@@ -44,6 +44,14 @@
             color: #08519c;
         }
     </style>
+
+<style>
+    calcite-list, calcite-button {
+      --calcite-color-text-1: #3c83b7;
+      --calcite-color-text-2: #3c83b7;
+      --calcite-color-text-3: #3c83b7;
+    }
+  </style>
 </head>
 <body>
     <div id="map"></div>
@@ -69,23 +77,41 @@
             "esri/layers/GraphicsLayer",
             "esri/Graphic",
             "esri/request",
-            "esri/layers/support/LabelClass"
+            "esri/layers/support/LabelClass",
+            "esri/layers/VectorTileLayer",
+            "esri/widgets/Search"
         ], function(esriConfig, Map, MapView, GeoJSONLayer, Legend, Home, 
                    ClassBreaksRenderer, SimpleFillSymbol, TextSymbol, 
-                   GraphicsLayer, Graphic, esriRequest, LabelClass) {
+                   GraphicsLayer, Graphic, esriRequest, LabelClass, VectorTileLayer, Search) {
             
                     esriConfig.apiKey = "AAPKe96926c67dfd4afb80185e0a1020deafnvFzsj9yYBaj80DS9MWNWPGhkV_K-kXKNIkOzspRqvQ4fQkbcRrhPVfkFafbB1zt";
 
             const map = new Map({
-               basemap: "gray-vector"
+                // basemap: "gray-vector"
             });
 
             const view = new MapView({
                 container: "map",
                 map: map,
                 center: [-96, 37.8],
-                zoom: 4
+                zoom: 4,
             });
+
+            // Moves the default zoom widget to the bottom left corner of the view's container
+            view.ui.move("zoom", "top-left");
+
+
+            const vtlLayer = new VectorTileLayer({
+                // URL to the vector tile service
+                url: "https://raw.githubusercontent.com/ashrafayman219/Dod-Map2/refs/heads/main/LightGrayBase.json"
+            });
+            map.add(vtlLayer);
+
+            const vtlLayer2 = new VectorTileLayer({
+                // URL to the vector tile service
+                url: "https://raw.githubusercontent.com/ashrafayman219/Dod-Map2/refs/heads/main/Reference04.json"
+            });
+            map.add(vtlLayer2);
 
             // State name to code mapping
             const stateNameToCode = {
@@ -111,7 +137,6 @@
                     width: 3
                 }
             });
-
 
             async function fetchSpendingData() {
                 try {
@@ -151,7 +176,7 @@
                 field: "spending",
                 defaultSymbol: new SimpleFillSymbol({
                     color: [239, 243, 255, 0.7],
-                    outline: { color: "white", width: 1 }
+                    outline: { color: "black", width: 0.5 }
                 }),
                 defaultLabel: "$0",
                 classBreakInfos: [
@@ -160,7 +185,7 @@
                         maxValue: 100000000,
                         symbol: new SimpleFillSymbol({
                             color: [239, 243, 255, 0.7],
-                            outline: { color: "white", width: 1 }
+                            outline: { color: "black", width: 0.5 }
                         }),
                         label: "$0 - $100M"
                     },
@@ -169,7 +194,7 @@
                         maxValue: 200000000,
                         symbol: new SimpleFillSymbol({
                             color: [189, 215, 231, 0.7],
-                            outline: { color: "white", width: 1 }
+                            outline: { color: "black", width: 0.5 }
                         }),
                         label: "$100M - $200M"
                     },
@@ -178,7 +203,7 @@
                         maxValue: 500000000,
                         symbol: new SimpleFillSymbol({
                             color: [107, 174, 214, 0.7],
-                            outline: { color: "white", width: 1 }
+                            outline: { color: "black", width: 0.5 }
                         }),
                         label: "$200M - $500M"
                     },
@@ -187,7 +212,7 @@
                         maxValue: 1000000000,
                         symbol: new SimpleFillSymbol({
                             color: [49, 130, 189, 0.7],
-                            outline: { color: "white", width: 1 }
+                            outline: { color: "black", width: 0.5 }
                         }),
                         label: "$500M - $1B"
                     },
@@ -196,7 +221,7 @@
                         maxValue: Infinity,
                         symbol: new SimpleFillSymbol({
                             color: [8, 81, 156, 0.7],
-                            outline: { color: "white", width: 1 }
+                            outline: { color: "black", width: 0.5 }
                         }),
                         label: "Over $1B"
                     }
@@ -206,20 +231,22 @@
             // Add labels configuration
             const labelClass = new LabelClass({
                 labelExpressionInfo: {
-                    expression: "$feature.name"
+                    expression: "Upper($feature.name)"
                 },
                 symbol: {
                     type: "text",
                     color: "black",
-                    haloColor: "white",
-                    haloSize: 3,
+                    // haloColor: "white",
+                    haloSize: 1,
                     font: {
-                        size: 12,
-                        weight: "bold"
+                        size: 9,
+                        weight: "bold",
+                        family: "Arial" // Specific font (replace with your desired font)
                     }
                 },
-                // minScale: 10000000,
-                // maxScale: 0
+                labelPlacement: "always-horizontal",
+                minScale: 20000000,
+                maxScale: 0
             });
 
 // ... (keep your existing HTML and CSS) ...
@@ -360,10 +387,10 @@ async function loadMap() {
     });
     view.ui.add(legend, "bottom-right");
 
-    const homeBtn = new Home({
-        view: view
-    });
-    view.ui.add(homeBtn, "top-left");
+    // const homeBtn = new Home({
+    //     view: view
+    // });
+    // view.ui.add(homeBtn, "top-left");
 }
             loadMap();
         });
